@@ -124,6 +124,7 @@ class Controller
 
             $log = "Data has been recieved.";
             $this->close();
+            sleep(1);
 
             $helper = new Helper();
 
