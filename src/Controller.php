@@ -106,41 +106,18 @@ class Controller
             $this->log($message);
             $message = pack("H*", $message);
             $this->serial->sendMessage($message);
+            $hexResponse = $this->readPort();
 
-            // Start polling
-            $startTime = time();
-            $timeoutSeconds = 20;
-            $response = '';
-            $lastDataTime = time();
-
-            while ((time() - $startTime) < $timeoutSeconds) {
-                $chunk = $this->serial->readPort();
-
-                if (!empty($chunk)) {
-                    $response .= $chunk;
-                    $lastDataTime = time(); // reset timer on each new chunk
-                }
-
-                // Stop if no new data was received in 2 seconds (idle timeout)
-                if ((time() - $lastDataTime) > 2) {
-                    break;
-                }
-
-                usleep(100000); // 100ms wait
-            }
-            // End polling
-
-            if (empty($response)) {
+            if (empty($hexResponse)) {
                 $log = "No data recieved";
                 $this->log($log);
                 $this->close();
+                sleep(1);
                 return [
                     'status' => false,
                     'error' => $log
                 ];
             }
-
-            $hexResponse = (string) join("", unpack("H*", $response));
 
             $log = "Data has been recieved.";
             $this->close();
@@ -283,5 +260,42 @@ class Controller
         }
 
         return $rx;
+    }
+
+    protected function readPort()
+    {
+        $startTime = time();
+        $timeout = 15; // seconds
+        $maxIterations = 30;
+        $iterations = 0;
+        $blankThreshold = 3;
+        $blanks = 0;
+        $hexResponse = '';
+
+        $this->log("Serial read started. PID: " . getmypid());
+
+        // Start of Polling
+        do {
+            $response = $this->serial->readPort();
+            $hex = join('', unpack('H*', $response));
+            // $this->log('$hex => ' . $hex);
+
+            $blanks = (empty($hex) || $hex === '06') ? $blanks + 1 : 0;
+            $hexResponse .= $hex;
+            $iterations++;
+
+            $hasEnoughData = strlen($hex) > 2;
+            $timeoutReached = (time() - $startTime) >= $timeout;
+            $maxReached = $iterations >= $maxIterations;
+
+            if ($hasEnoughData || $timeoutReached || $maxReached) {
+                break;
+            }
+
+            sleep(1);
+        } while ($blanks < $blankThreshold);
+        // End of Polling
+
+        return $hexResponse;
     }
 }
