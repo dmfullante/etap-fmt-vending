@@ -111,13 +111,22 @@ class Controller
             $startTime = time();
             $timeoutSeconds = 20;
             $response = '';
+            $lastDataTime = time();
+
             while ((time() - $startTime) < $timeoutSeconds) {
                 $chunk = $this->serial->readPort();
+
                 if (!empty($chunk)) {
                     $response .= $chunk;
-                    break; // Optionally break here, or keep going if you expect more
+                    $lastDataTime = time(); // reset timer on each new chunk
                 }
-                usleep(100000); // Wait 100 milliseconds between polls
+
+                // Stop if no new data was received in 2 seconds (idle timeout)
+                if ((time() - $lastDataTime) > 2) {
+                    break;
+                }
+
+                usleep(100000); // 100ms wait
             }
             // End polling
 
