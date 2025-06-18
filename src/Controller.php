@@ -106,9 +106,20 @@ class Controller
             $this->log($message);
             $message = pack("H*", $message);
             $this->serial->sendMessage($message);
-            sleep(5);
 
-            $response = $this->serial->readPort();
+            // Start polling
+            $startTime = time();
+            $timeoutSeconds = 20;
+            $response = '';
+            while ((time() - $startTime) < $timeoutSeconds) {
+                $chunk = $this->serial->readPort();
+                if (!empty($chunk)) {
+                    $response .= $chunk;
+                    break; // Optionally break here, or keep going if you expect more
+                }
+                usleep(100000); // Wait 100 milliseconds between polls
+            }
+            // End polling
 
             if (empty($response)) {
                 $log = "No data recieved";
