@@ -264,36 +264,32 @@ class Controller
 
     protected function readPort()
     {
+        $this->log("Serial read started. PID: " . getmypid());
+
         $startTime = time();
         $timeout = 15; // seconds
-        $maxIterations = 30;
-        $iterations = 0;
-        $blankThreshold = 3;
-        $blanks = 0;
+        $emptyThreshold = 15;
+        $countEmpty = 0;
         $hexResponse = '';
-
-        $this->log("Serial read started. PID: " . getmypid());
 
         // Start of Polling
         do {
             $response = $this->serial->readPort();
-            $hex = join('', unpack('H*', $response));
-            // $this->log('$hex => ' . $hex);
+            $hex = (string) join('', unpack('H*', $response));
+            $this->log('$hex => ' . $hex);
 
-            $blanks = (empty($hex) || $hex === '06') ? $blanks + 1 : 0;
+            $countEmpty = (empty($hex) || $hex === '06') ? $countEmpty + 1 : 0;
             $hexResponse .= $hex;
-            $iterations++;
 
             $hasEnoughData = strlen($hex) > 2;
             $timeoutReached = (time() - $startTime) >= $timeout;
-            $maxReached = $iterations >= $maxIterations;
 
-            if ($hasEnoughData || $timeoutReached || $maxReached) {
+            if ($hasEnoughData || $timeoutReached) {
                 break;
             }
 
             sleep(1);
-        } while ($blanks < $blankThreshold);
+        } while ($countEmpty < $emptyThreshold);
         // End of Polling
 
         return $hexResponse;
